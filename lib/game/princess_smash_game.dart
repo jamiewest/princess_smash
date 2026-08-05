@@ -75,6 +75,11 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
   Vector2 _lastSafeSpot = Vector2.zero();
   double _respawnDelay = 0;
 
+  /// -1, 0 or 1, driven by the on-screen walk pad. Merged with the keyboard
+  /// every frame, and deliberately not cleared on restart so a thumb held
+  /// through a respawn keeps walking, same as a held arrow key.
+  double touchMove = 0;
+
   @override
   Color backgroundColor() => Pal.skyMid;
 
@@ -199,8 +204,8 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
       princess.moveInput = 0;
       return;
     }
-    final left = _keys.any(_leftKeys.contains);
-    final right = _keys.any(_rightKeys.contains);
+    final left = _keys.any(_leftKeys.contains) || touchMove < 0;
+    final right = _keys.any(_rightKeys.contains) || touchMove > 0;
     princess.moveInput = (right ? 1 : 0) + (left ? -1 : 0);
 
     if (princess.onGround && princess.velocity.x.abs() < 40) {
@@ -346,6 +351,26 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
     if (camera.isMounted) {
       terrain.visible = camera.visibleWorldRect;
     }
+  }
+
+  /// Press from the on-screen jump button. Mirrors the SPACE key exactly: on
+  /// a menu the press starts a run and doubles as the first jump; during play
+  /// it feeds the usual buffered jump, with variable height while held.
+  void pressJumpButton() {
+    if (!isLoaded) return;
+    if (status != GameStatus.playing) {
+      startGame(jump: true);
+      princess.jumpHeld = true;
+      return;
+    }
+    princess.jumpHeld = true;
+    princess.requestJump();
+  }
+
+  /// Release for the on-screen jump button; cuts the jump short like a keyup.
+  void releaseJumpButton() {
+    if (!isLoaded) return;
+    princess.releaseJump();
   }
 
   @override
