@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 
 import 'game/appearance.dart';
@@ -12,6 +14,7 @@ import 'game/princess_smash_game.dart';
 import 'ui/hero_maker.dart';
 import 'ui/overlay_panel.dart';
 import 'ui/quiz_panel.dart';
+import 'ui/touch_controls.dart';
 
 void main() {
   runApp(const PrincessSmashApp());
@@ -323,6 +326,22 @@ class _GameScreenState extends State<GameScreen> {
   /// the game after being tapped.
   final FocusNode _focusNode = FocusNode(debugLabel: 'princess-smash');
 
+  /// Phones and tablets get the on-screen controls up front; anything else
+  /// earns them the moment a real touch happens (touch laptops, mis-detected
+  /// mobile browsers), so keyboard players never see them.
+  bool _touchControls = switch (defaultTargetPlatform) {
+    TargetPlatform.android ||
+    TargetPlatform.iOS ||
+    TargetPlatform.fuchsia => true,
+    _ => false,
+  };
+
+  void _onPointerDown(PointerDownEvent event) {
+    if (!_touchControls && event.kind == PointerDeviceKind.touch) {
+      setState(() => _touchControls = true);
+    }
+  }
+
   @override
   void dispose() {
     _focusNode.dispose();
@@ -384,70 +403,75 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final walkHint = _touchControls
+        ? 'Hold ◀ ▶ to walk  •  the big button to jump and smash'
+        : 'Arrow keys or A / D to walk  •  SPACE to jump and smash';
     return Scaffold(
       backgroundColor: Pal.ink,
-      body: Stack(
-        children: [
-          GameWidget<PrincessSmashGame>(
-            game: _game,
-            focusNode: _focusNode,
-            autofocus: true,
-            overlayBuilderMap: {
-              kTitleOverlay: (_, game) => OverlayPanel(
-                title: _titleHeading,
-                message: _titleMessage,
-                hint:
-                    'Arrow keys or A / D to walk  •  '
-                    'SPACE to jump and smash',
-                actionLabel: widget.lesson == null
-                    ? 'Start the journey'
-                    : "Let's go!",
-                accent: _hero.outfit,
-                onAction: _start,
-              ),
-              kGameOverOverlay: (_, game) => OverlayPanel(
-                title: 'Oh no!',
-                message:
-                    '${_hero.name} is all out of hearts.\n'
-                    '${_hero.gender.subjectCap} found ${game.gems} gems '
-                    'along the way.',
-                hint: 'Every journey home deserves another try.',
-                actionLabel: 'Try again',
-                accent: _hero.outfit,
-                onAction: _start,
-              ),
-              kWinOverlay: (_, game) => OverlayPanel(
-                title: 'Home at last!',
-                message: _winMessage(game),
-                hint: 'Warm cocoa, a soft chair, and a very good nap.',
-                actionLabel: 'Play again',
-                accent: _hero.outfit,
-                onAction: _start,
-              ),
-              kQuizOverlay: (_, game) => QuizPanel(
-                key: ValueKey(game.activeGate?.col),
-                question: game.activeGate!.question,
-                accent: _hero.outfit,
-                accentDark: _hero.outfitDark,
-                onAnswer: _answer,
-              ),
-            },
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(6),
-              child: IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Back to lessons',
-                style: IconButton.styleFrom(
-                  backgroundColor: Pal.ink.withValues(alpha: 0.35),
-                  foregroundColor: Pal.cloud,
+      body: Listener(
+        onPointerDown: _onPointerDown,
+        child: Stack(
+          children: [
+            GameWidget<PrincessSmashGame>(
+              game: _game,
+              focusNode: _focusNode,
+              autofocus: true,
+              overlayBuilderMap: {
+                kTitleOverlay: (_, game) => OverlayPanel(
+                  title: _titleHeading,
+                  message: _titleMessage,
+                  hint: walkHint,
+                  actionLabel: widget.lesson == null
+                      ? 'Start the journey'
+                      : "Let's go!",
+                  accent: _hero.outfit,
+                  onAction: _start,
+                ),
+                kGameOverOverlay: (_, game) => OverlayPanel(
+                  title: 'Oh no!',
+                  message:
+                      '${_hero.name} is all out of hearts.\n'
+                      '${_hero.gender.subjectCap} found ${game.gems} gems '
+                      'along the way.',
+                  hint: 'Every journey home deserves another try.',
+                  actionLabel: 'Try again',
+                  accent: _hero.outfit,
+                  onAction: _start,
+                ),
+                kWinOverlay: (_, game) => OverlayPanel(
+                  title: 'Home at last!',
+                  message: _winMessage(game),
+                  hint: 'Warm cocoa, a soft chair, and a very good nap.',
+                  actionLabel: 'Play again',
+                  accent: _hero.outfit,
+                  onAction: _start,
+                ),
+                kQuizOverlay: (_, game) => QuizPanel(
+                  key: ValueKey(game.activeGate?.col),
+                  question: game.activeGate!.question,
+                  accent: _hero.outfit,
+                  accentDark: _hero.outfitDark,
+                  onAnswer: _answer,
+                ),
+              },
+            ),
+            if (_touchControls) TouchControls(game: _game),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Back to lessons',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Pal.ink.withValues(alpha: 0.35),
+                    foregroundColor: Pal.cloud,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
