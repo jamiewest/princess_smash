@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "princess-smash-web",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": ["run", "-d", "web-server", "--web-port", "8642"],
+      "port": 8642
+    },
+    {
+      "name": "princess-smash-web-alt",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": ["run", "-d", "web-server", "--web-port", "8643"],
+      "port": 8643
+    },
+    {
+      "name": "princess-smash-web-2",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": ["run", "-d", "web-server", "--web-port", "8644"],
+      "port": 8644
+    }
+  ]
+}

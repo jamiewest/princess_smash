@@ -5,32 +5,53 @@ import 'package:flame/input.dart';
 import 'package:flutter/material.dart' show KeyEventResult;
 import 'package:flutter/services.dart';
 
+import 'appearance.dart';
+import 'education/lesson.dart';
 import 'enemy.dart';
 import 'goal.dart';
 import 'hud.dart';
+import 'letter_drop.dart';
 import 'level.dart';
 import 'palette.dart';
 import 'pickups.dart';
 import 'princess.dart';
+import 'quiz_gate.dart';
 import 'scenery.dart';
 import 'sparkle.dart';
 
-enum GameStatus { title, playing, gameOver, won }
+enum GameStatus { title, playing, quiz, letterDrop, gameOver, won }
 
 const String kTitleOverlay = 'title';
 const String kGameOverOverlay = 'gameOver';
 const String kWinOverlay = 'win';
+const String kQuizOverlay = 'quiz';
 
 /// A little side-scrolling platformer: the princess is lost, and the way home
 /// runs east across the meadow. Jump on the blobs to squash them.
+///
+/// With a [lesson] and a generated [Level], the road home also teaches:
+/// letter pickups spell the lesson's focus word and rose gates pause play
+/// with a quiz question until it is answered.
 class PrincessSmashGame extends FlameGame with KeyboardEvents {
-  PrincessSmashGame()
-    : super(
-        camera: CameraComponent.withFixedResolution(
-          width: viewWidth,
-          height: viewHeight,
-        ),
-      );
+  PrincessSmashGame({
+    this.lesson,
+    Level? level,
+    this.appearance = HeroAppearance.emery,
+  }) : _customLevel = level,
+       super(
+         camera: CameraComponent.withFixedResolution(
+           width: viewWidth,
+           height: viewHeight,
+         ),
+       );
+
+  /// The educational goals behind this level, or null for free play.
+  final Lesson? lesson;
+
+  /// How the hero looks and is spoken about in the story text.
+  final HeroAppearance appearance;
+
+  final Level? _customLevel;
 
   static const double viewWidth = 480;
   static const double viewHeight = 270;
@@ -65,11 +86,26 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
 
   final List<Enemy> enemies = [];
   final List<Pickup> pickups = [];
+  final List<QuizGate> gates = [];
   final List<Component> _spawned = [];
 
   GameStatus status = GameStatus.title;
   int hearts = maxHearts;
   int gems = 0;
+
+  /// Which slots of the focus word have been collected.
+  List<bool> lettersFound = const [];
+
+  /// Wrong quiz answers this run; the win screen celebrates a clean sweep.
+  int quizMisses = 0;
+
+  /// The gate whose question is on screen while [status] is quiz.
+  QuizGate? activeGate;
+
+  /// The drag-the-letter mini-game on screen while [status] is letterDrop.
+  LetterDropChallenge? letterChallenge;
+
+  int get lettersCollected => lettersFound.where((found) => found).length;
 
   final Set<LogicalKeyboardKey> _keys = {};
   Vector2 _lastSafeSpot = Vector2.zero();
@@ -80,10 +116,19 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
 
   @override
   Future<void> onLoad() async {
-    level = Level.parse();
+    level = _customLevel ?? Level.parse();
     scenery = Scenery(level: level);
-    terrain = Terrain(level: level);
-    hud = Hud(maxHearts: maxHearts, totalGems: level.gemCount);
+    terrain = Terrain(
+      level: level,
+      platform: appearance.platform,
+      platformEdge: appearance.platformEdge,
+    );
+    hud = Hud(
+      maxHearts: maxHearts,
+      totalGems: level.gemCount,
+      word: lesson?.word,
+      accent: appearance.outfit,
+    );
 
     await world.addAll([scenery, terrain]);
     camera.viewport.add(hud);
@@ -101,6 +146,12 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
     _spawned.clear();
     enemies.clear();
     pickups.clear();
+    gates.clear();
+    activeGate = null;
+    _removeLetterChallenge();
+    quizMisses = 0;
+    level.resetGates();
+    lettersFound = List.filled(lesson?.word.length ?? 0, false);
 
     for (final placement in level.placements) {
       switch (placement.symbol) {
@@ -108,6 +159,7 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
           princess = Princess(
             level: level,
             spawn: Vector2(placement.x + 2, placement.y + kTileSize - 30),
+            appearance: appearance,
           );
           _lastSafeSpot = princess.position.clone();
           _spawn(princess);
@@ -131,9 +183,47 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
           pickups.add(heart);
           _spawn(heart);
         case 'D':
-          door = HomeDoor(spawn: Vector2(placement.x, placement.y));
+          door = HomeDoor(
+            spawn: Vector2(placement.x, placement.y),
+            roof: appearance.roof,
+          );
           _spawn(door);
       }
+    }
+    _spawnLessonEntities();
+  }
+
+  /// Letters and quiz gates need their reading order, so they are matched to
+  /// the word and question list by column rather than parse order.
+  void _spawnLessonEntities() {
+    final lesson = this.lesson;
+    if (lesson == null) return;
+
+    final letterSpots = level.placements.where((p) => p.isLetter).toList()
+      ..sort((a, b) => a.col.compareTo(b.col));
+    for (var i = 0; i < letterSpots.length; i++) {
+      final spot = letterSpots[i];
+      final letter = LetterPickup(
+        spawn: Vector2(spot.x + 3, spot.y + 3),
+        letter: spot.symbol,
+        index: i,
+        shadow: appearance.outfitDark,
+      );
+      pickups.add(letter);
+      _spawn(letter);
+    }
+
+    final gateSpots = level.placements.where((p) => p.symbol == 'G').toList()
+      ..sort((a, b) => a.col.compareTo(b.col));
+    for (var i = 0; i < gateSpots.length; i++) {
+      final spot = gateSpots[i];
+      final gate = QuizGate(
+        question: lesson.questions[i],
+        col: spot.col,
+        topRow: spot.row,
+      );
+      gates.add(gate);
+      _spawn(gate);
     }
   }
 
@@ -182,10 +272,14 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
     super.update(playing ? step : 0);
     if (!playing) {
       scenery.update(step);
+      // The mini-game keeps animating (bobbing tile, box glow) while the
+      // frozen world waits, exactly like the scenery.
+      letterChallenge?.update(step);
     } else {
       _applyInput();
       _resolveEnemies();
       _resolvePickups();
+      _resolveGates();
       _resolveGoal();
       _checkFallOut(step);
       _syncHud();
@@ -249,11 +343,105 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
       if (pickup is Gem) {
         gems++;
         world.add(SparkleBurst(spawn: centre, colour: Pal.gemLight, count: 9));
+      } else if (pickup is LetterPickup) {
+        world.add(
+          SparkleBurst(spawn: centre, colour: Pal.crown, count: 14, speed: 90),
+        );
+        _startLetterDrop(pickup.letter);
+        // The world is pausing for the mini-game; anything else she brushed
+        // this frame gets collected the moment play resumes.
+        return;
       } else {
         hearts = math.min(maxHearts, hearts + 1);
         world.add(SparkleBurst(spawn: centre, colour: Pal.heart, count: 12));
       }
     }
+  }
+
+  /// Catching a letter pauses the world: the caught tile has to be dragged
+  /// into the right box of the word bar before the journey continues.
+  void _startLetterDrop(String letter) {
+    status = GameStatus.letterDrop;
+    final challenge = LetterDropChallenge(
+      letter: letter,
+      word: lesson!.word,
+      filled: lettersFound,
+      onPlaced: _onLetterPlaced,
+      viewSize: Vector2(viewWidth, viewHeight),
+      shadow: appearance.outfitDark,
+    );
+    letterChallenge = challenge;
+    camera.viewport.add(challenge);
+  }
+
+  /// Called by the challenge once the letter lands in a correct box.
+  void _onLetterPlaced(int slot) {
+    lettersFound[slot] = true;
+    final box = Hud.wordSlotRect(lesson!.word.length, slot);
+    camera.viewport.add(
+      SparkleBurst(
+        spawn: Vector2(box.center.dx, box.center.dy),
+        colour: Pal.crown,
+        count: 14,
+        speed: 70,
+      )..priority = 150,
+    );
+    _removeLetterChallenge();
+    status = GameStatus.playing;
+    // Same re-sync as answerGate: keys may have changed during the pause.
+    _keys
+      ..clear()
+      ..addAll(HardwareKeyboard.instance.logicalKeysPressed);
+  }
+
+  void _removeLetterChallenge() {
+    letterChallenge?.removeFromParent();
+    letterChallenge = null;
+  }
+
+  /// Reaching a locked gate pauses the world and pops the question card.
+  void _resolveGates() {
+    if (!princess.isAlive) return;
+    for (final gate in gates) {
+      if (gate.opened || !gate.isMounted) continue;
+      if ((gate.centerX - princess.centerX).abs() > 30) continue;
+      activeGate = gate;
+      status = GameStatus.quiz;
+      overlays.add(kQuizOverlay);
+      return;
+    }
+  }
+
+  /// Called by the quiz card. A correct answer swings the gate open and play
+  /// resumes; a wrong one keeps the card up so she can try again.
+  bool answerGate(int choiceIndex) {
+    final gate = activeGate;
+    if (gate == null || status != GameStatus.quiz) return false;
+    if (choiceIndex != gate.question.answerIndex) {
+      quizMisses++;
+      return false;
+    }
+    level.openGate(gate.col);
+    gate.open();
+    world.add(
+      SparkleBurst(
+        spawn: Vector2(gate.centerX, gate.top + gate.size.y / 2),
+        colour: Pal.sparkle,
+        count: 18,
+        speed: 120,
+        lifetime: 0.8,
+      ),
+    );
+    overlays.remove(kQuizOverlay);
+    activeGate = null;
+    status = GameStatus.playing;
+    // While the quiz card held focus the game missed key events, so a key
+    // released mid-quiz could read as still held. Re-sync with the real
+    // keyboard, exactly like startGame does.
+    _keys
+      ..clear()
+      ..addAll(HardwareKeyboard.instance.logicalKeysPressed);
+    return true;
   }
 
   void _resolveGoal() {
@@ -317,12 +505,14 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
     hud
       ..hearts = hearts
       ..gems = gems
+      ..lettersFound = lettersFound
       ..progress = (princess.centerX / (door.position.x + 12)).clamp(0.0, 1.0);
   }
 
   void _pruneRemoved() {
     enemies.removeWhere((enemy) => enemy.isRemoved);
     pickups.removeWhere((pickup) => pickup.isRemoved);
+    gates.removeWhere((gate) => gate.isRemoved);
   }
 
   Vector2 _cameraTarget() {
@@ -356,6 +546,12 @@ class PrincessSmashGame extends FlameGame with KeyboardEvents {
     _keys
       ..clear()
       ..addAll(keysPressed);
+
+    // While a quiz card or the letter mini-game is up, the run must not
+    // restart from a stray SPACE; the quiz overlay also wants the keyboard.
+    if (status == GameStatus.quiz || status == GameStatus.letterDrop) {
+      return KeyEventResult.ignored;
+    }
 
     if (event is KeyDownEvent && _confirmKeys.contains(event.logicalKey)) {
       if (status != GameStatus.playing) {

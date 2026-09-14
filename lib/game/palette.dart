@@ -21,12 +21,14 @@ class Pal {
   static const platform = Color(0xFFFFC9DE);
   static const platformEdge = Color(0xFFFF9EC4);
 
-  // Princess
+  // Emery, the princess. Warm brown skin and dark chestnut curls, kept soft
+  // and pastel so she sits comfortably in the storybook world.
   static const dress = Color(0xFFFF9EC4);
   static const dressDark = Color(0xFFF279AB);
-  static const skin = Color(0xFFFFE0C6);
-  static const hair = Color(0xFFFFD98A);
-  static const hairDark = Color(0xFFF0BF63);
+  static const skin = Color(0xFFC98F66);
+  static const skinShade = Color(0xFFB37A52);
+  static const hair = Color(0xFF6B4A38);
+  static const hairDark = Color(0xFF523726);
   static const crown = Color(0xFFFFE066);
   static const crownGem = Color(0xFF7FD8FF);
 

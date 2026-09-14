@@ -10,6 +10,7 @@ class OverlayPanel extends StatelessWidget {
     required this.hint,
     required this.actionLabel,
     required this.onAction,
+    this.accent = Pal.dress,
     super.key,
   });
 
@@ -18,6 +19,9 @@ class OverlayPanel extends StatelessWidget {
   final String hint;
   final String actionLabel;
   final VoidCallback onAction;
+
+  /// Border and button colour, matched to the hero's outfit.
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +37,7 @@ class OverlayPanel extends StatelessWidget {
           shadowColor: Pal.ink.withValues(alpha: 0.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
-            side: const BorderSide(color: Pal.dress, width: 3),
+            side: BorderSide(color: accent, width: 3),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(28, 26, 28, 22),
@@ -66,7 +70,7 @@ class OverlayPanel extends StatelessWidget {
                 FilledButton(
                   onPressed: onAction,
                   style: FilledButton.styleFrom(
-                    backgroundColor: Pal.dress,
+                    backgroundColor: accent,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 26,

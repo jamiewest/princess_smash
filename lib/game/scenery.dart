@@ -130,12 +130,20 @@ class _Cloud {
 /// Draws the solid tile grid. Tiles are culled to the camera's visible rect so
 /// the whole 100-column level costs almost nothing to render.
 class Terrain extends PositionComponent {
-  Terrain({required this.level}) : super(priority: -10) {
+  Terrain({
+    required this.level,
+    this.platform = Pal.platform,
+    this.platformEdge = Pal.platformEdge,
+  }) : super(priority: -10) {
     size = Vector2(level.width, level.height);
     visible = Rect.fromLTWH(0, 0, level.width, level.height);
   }
 
   final Level level;
+
+  /// Floating platform colours; the game dyes these to match the hero.
+  final Color platform;
+  final Color platformEdge;
 
   /// Set each frame by the game so rendering can cull off-screen tiles.
   late Rect visible;
@@ -144,14 +152,16 @@ class Terrain extends PositionComponent {
   void render(Canvas canvas) {
     final colStart = math.max(0, (visible.left / kTileSize).floor() - 1);
     final colEnd = math.min(
-      kLevelCols - 1,
+      level.cols - 1,
       (visible.right / kTileSize).ceil() + 1,
     );
 
-    for (var row = 0; row < kLevelRowCount; row++) {
+    for (var row = 0; row < level.rowCount; row++) {
       for (var col = colStart; col <= colEnd; col++) {
         final kind = level.kindAt(col, row);
-        if (kind == TileKind.none) continue;
+        // Gate tiles are solid but invisible here: the QuizGate component
+        // draws the gate itself.
+        if (kind == TileKind.none || kind == TileKind.gate) continue;
         final rect = Rect.fromLTWH(
           col * kTileSize,
           row * kTileSize,
@@ -206,7 +216,7 @@ class Terrain extends PositionComponent {
         topRight: Radius.circular(rightEnd ? 8 : 0),
         bottomRight: Radius.circular(rightEnd ? 8 : 0),
       ),
-      Paint()..color = Pal.platform,
+      Paint()..color = platform,
     );
     canvas.drawRRect(
       RRect.fromRectAndCorners(
@@ -214,7 +224,7 @@ class Terrain extends PositionComponent {
         topLeft: Radius.circular(leftEnd ? 6 : 0),
         topRight: Radius.circular(rightEnd ? 6 : 0),
       ),
-      Paint()..color = Pal.platformEdge,
+      Paint()..color = platformEdge,
     );
   }
 }

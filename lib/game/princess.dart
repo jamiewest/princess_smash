@@ -3,15 +3,22 @@ import 'dart:ui';
 
 import 'package:flame/components.dart';
 
-import 'palette.dart';
+import 'appearance.dart';
+import 'hero_painter.dart';
 import 'physics_entity.dart';
 
-/// The player. Handles run/jump feel (acceleration, coyote time, jump
-/// buffering, variable jump height) plus the squash-and-stretch that carries
-/// most of the game's charm.
+/// The player: the royal hero, Princess Emery by default. Handles run/jump
+/// feel (acceleration, coyote time, jump buffering, variable jump height)
+/// plus the squash-and-stretch that carries most of the game's charm.
 class Princess extends PhysicsEntity {
-  Princess({required super.level, required Vector2 spawn})
-    : super(position: spawn.clone(), size: Vector2(20, 30));
+  Princess({
+    required super.level,
+    required Vector2 spawn,
+    this.appearance = HeroAppearance.emery,
+  }) : super(position: spawn.clone(), size: Vector2(20, 30));
+
+  /// How the hero looks; see [HeroAppearance] for what can be customised.
+  final HeroAppearance appearance;
 
   static const double _maxRunSpeed = 190;
   static const double _acceleration = 1250;
@@ -176,144 +183,12 @@ class Princess extends PhysicsEntity {
     canvas.scale(scaleX * facing, scaleY);
     canvas.translate(-size.x / 2, -size.y);
 
-    _renderBody(canvas);
+    paintHero(
+      canvas,
+      appearance,
+      bob: onGround ? math.sin(_walkPhase * 6) * 0.8 : 0.0,
+      blinking: _blinkTimer <= 0,
+    );
     canvas.restore();
-  }
-
-  void _renderBody(Canvas canvas) {
-    final skin = Paint()..color = Pal.skin;
-    final hairPaint = Paint()..color = Pal.hair;
-    final bob = onGround ? math.sin(_walkPhase * 6) * 0.8 : 0.0;
-
-    canvas.save();
-    canvas.translate(0, bob);
-
-    // Dress: a soft bell from waist to feet.
-    final dress = Path()
-      ..moveTo(6.5, 15)
-      ..lineTo(13.5, 15)
-      ..quadraticBezierTo(19.5, 24, 18, 29.5)
-      ..lineTo(2, 29.5)
-      ..quadraticBezierTo(0.5, 24, 6.5, 15)
-      ..close();
-    canvas.drawPath(dress, Paint()..color = Pal.dress);
-    canvas.drawPath(
-      Path()
-        ..moveTo(2, 29.5)
-        ..lineTo(18, 29.5)
-        ..lineTo(17.2, 26.5)
-        ..lineTo(2.8, 26.5)
-        ..close(),
-      Paint()..color = Pal.dressDark,
-    );
-
-    // Arms.
-    canvas.drawCircle(const Offset(4, 17), 2.4, skin);
-    canvas.drawCircle(const Offset(16, 17), 2.4, skin);
-
-    // Hair behind the head.
-    canvas.drawCircle(const Offset(10, 9.5), 8.4, hairPaint);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(1.8, 8, 16.4, 12),
-        const Radius.circular(6),
-      ),
-      hairPaint,
-    );
-
-    // Face.
-    canvas.drawCircle(const Offset(10, 9.8), 6.8, skin);
-
-    // Fringe.
-    canvas.drawPath(
-      Path()
-        ..moveTo(3.4, 8.6)
-        ..quadraticBezierTo(10, 0.6, 16.6, 8.6)
-        ..quadraticBezierTo(13.5, 5.4, 10, 6.6)
-        ..quadraticBezierTo(6.5, 5.4, 3.4, 8.6)
-        ..close(),
-      Paint()..color = Pal.hairDark,
-    );
-
-    _renderFace(canvas);
-    _renderCrown(canvas);
-
-    canvas.restore();
-  }
-
-  void _renderFace(Canvas canvas) {
-    final eye = Paint()..color = Pal.eyeDark;
-    final blinking = _blinkTimer <= 0;
-    if (blinking) {
-      final lid = Paint()
-        ..color = Pal.eyeDark
-        ..strokeWidth = 1.2
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
-      canvas.drawLine(const Offset(6.4, 10.4), const Offset(8.6, 10.4), lid);
-      canvas.drawLine(const Offset(11.4, 10.4), const Offset(13.6, 10.4), lid);
-    } else {
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: const Offset(7.5, 10.3),
-          width: 2.8,
-          height: 3.6,
-        ),
-        eye,
-      );
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: const Offset(12.5, 10.3),
-          width: 2.8,
-          height: 3.6,
-        ),
-        eye,
-      );
-      final glint = Paint()..color = Pal.eyeWhite;
-      canvas.drawCircle(const Offset(8.2, 9.4), 0.8, glint);
-      canvas.drawCircle(const Offset(13.2, 9.4), 0.8, glint);
-    }
-
-    final cheeks = Paint()..color = Pal.dress.withValues(alpha: 0.55);
-    canvas.drawCircle(const Offset(5.6, 12.6), 1.5, cheeks);
-    canvas.drawCircle(const Offset(14.4, 12.6), 1.5, cheeks);
-
-    canvas.drawArc(
-      Rect.fromCenter(center: const Offset(10, 12.4), width: 4, height: 3),
-      0.2,
-      2.7,
-      false,
-      Paint()
-        ..color = Pal.eyeDark
-        ..strokeWidth = 0.9
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke,
-    );
-  }
-
-  void _renderCrown(Canvas canvas) {
-    final gold = Paint()..color = Pal.crown;
-    final crown = Path()
-      ..moveTo(5.6, 3.4)
-      ..lineTo(7.2, 0.6)
-      ..lineTo(8.8, 3.0)
-      ..lineTo(10, 0.2)
-      ..lineTo(11.2, 3.0)
-      ..lineTo(12.8, 0.6)
-      ..lineTo(14.4, 3.4)
-      ..close();
-    canvas.drawPath(crown, gold);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(5.4, 3.0, 9.2, 2.0),
-        const Radius.circular(1),
-      ),
-      gold,
-    );
-    canvas.drawCircle(
-      const Offset(10, 2.6),
-      1.1,
-      Paint()..color = Pal.crownGem,
-    );
   }
 }

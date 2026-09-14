@@ -9,10 +9,13 @@ import 'palette.dart';
 /// Home: the little cottage the princess is trying to reach. It leans and
 /// glows a bit harder as she gets close, so the goal reads from a distance.
 class HomeDoor extends PositionComponent {
-  HomeDoor({required Vector2 spawn})
+  HomeDoor({required Vector2 spawn, this.roof = Pal.roof})
     : super(position: spawn.clone(), size: Vector2(kTileSize, kTileSize * 2)) {
     position.y -= kTileSize;
   }
+
+  /// Roof colour; the game dyes it to match the hero coming home.
+  final Color roof;
 
   double _time = 0;
   double excitement = 0;
@@ -37,12 +40,12 @@ class HomeDoor extends PositionComponent {
       Paint()..color = Pal.door,
     );
 
-    final roof = Path()
+    final roofPath = Path()
       ..moveTo(-6, size.y * 0.34)
       ..lineTo(size.x / 2, size.y * 0.02)
       ..lineTo(size.x + 6, size.y * 0.34)
       ..close();
-    canvas.drawPath(roof, Paint()..color = Pal.roof);
+    canvas.drawPath(roofPath, Paint()..color = roof);
 
     final doorway = RRect.fromRectAndCorners(
       Rect.fromLTWH(size.x * 0.24, size.y * 0.55, size.x * 0.52, size.y * 0.45),

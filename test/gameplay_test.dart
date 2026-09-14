@@ -28,9 +28,9 @@ Enemy walkerAt(Level level, double x, double bottom) =>
     Enemy(level: level, spawn: Vector2(x, bottom - 20), kind: EnemyKind.walker);
 
 /// Runs the princess through the same entry point the game loop uses.
-void run(Princess pip, {double dt = 1 / 60, int frames = 1}) {
+void run(Princess emery, {double dt = 1 / 60, int frames = 1}) {
   for (var i = 0; i < frames; i++) {
-    pip.update(dt);
+    emery.update(dt);
   }
 }
 
@@ -58,7 +58,7 @@ void main() {
     });
 
     test('low platforms never overhang a pit', () {
-      // A full jump raises Pip's head to y = groundTop - 30 - 89, which is
+      // A full jump raises Emery's head to y = groundTop - 30 - 89, which is
       // y=169 with the current tuning: she clears under row-6 platforms
       // (underside y=168) by a pixel, but bonks anything lower. So any
       // platform too low to pass under must sit entirely over solid ground —
@@ -95,25 +95,25 @@ void main() {
       for (final pit in pits) {
         final lipX = pit[0] * kTileSize;
         final farLipX = (pit[1] + 1) * kTileSize;
-        final pip = princessAt(level, lipX - 120, groundTop)
+        final emery = princessAt(level, lipX - 120, groundTop)
           ..moveInput = 1
           ..jumpHeld = true;
 
         var jumped = false;
         var landedX = double.nan;
         for (var frame = 0; frame < 240; frame++) {
-          if (!jumped && pip.right >= lipX - 2) {
-            pip.requestJump();
+          if (!jumped && emery.right >= lipX - 2) {
+            emery.requestJump();
             jumped = true;
           }
-          pip.update(1 / 60);
+          emery.update(1 / 60);
           expect(
-            pip.top,
+            emery.top,
             lessThan(level.killPlaneY),
             reason: 'fell into the pit at columns ${pit[0]}-${pit[1]}',
           );
-          if (jumped && pip.onGround) {
-            landedX = pip.left;
+          if (jumped && emery.onGround) {
+            landedX = emery.left;
             break;
           }
         }
@@ -124,7 +124,7 @@ void main() {
           greaterThanOrEqualTo(farLipX),
           reason:
               'did not clear the pit at columns ${pit[0]}-${pit[1]}: '
-              'landed at x=$landedX, needed ${farLipX}',
+              'landed at x=$landedX, needed $farLipX',
         );
       }
     });
@@ -188,23 +188,23 @@ void main() {
     test('coming down on a blob counts as a stomp', () {
       final blob = walkerAt(level, 72, groundTop);
       // Feet level with the blob's head, on the way down.
-      final pip = princessAt(level, 72, groundTop - 20);
-      pip.velocity.y = 400;
-      run(pip);
+      final emery = princessAt(level, 72, groundTop - 20);
+      emery.velocity.y = 400;
+      run(emery);
 
-      expect(pip.overlaps(blob, inset: 1.5), isTrue);
-      expect(blob.isStompedBy(pip), isTrue);
+      expect(emery.overlaps(blob, inset: 1.5), isTrue);
+      expect(blob.isStompedBy(emery), isTrue);
     });
 
     test('a fast fall still registers across a long frame', () {
       final blob = walkerAt(level, 72, groundTop);
-      final pip = princessAt(level, 72, groundTop - 58);
-      pip.velocity.y = 900;
-      run(pip, dt: 1 / 20);
+      final emery = princessAt(level, 72, groundTop - 58);
+      emery.velocity.y = 900;
+      run(emery, dt: 1 / 20);
 
-      expect(pip.overlaps(blob, inset: 1.5), isTrue);
+      expect(emery.overlaps(blob, inset: 1.5), isTrue);
       expect(
-        blob.isStompedBy(pip),
+        blob.isStompedBy(emery),
         isTrue,
         reason: 'the stomp window must not depend on frame rate',
       );
@@ -212,45 +212,49 @@ void main() {
 
     test('walking into a blob sideways is not a stomp', () {
       final blob = walkerAt(level, 100, groundTop);
-      final pip = princessAt(level, 72, groundTop)..moveInput = 1;
-      run(pip, frames: 12);
+      final emery = princessAt(level, 72, groundTop)..moveInput = 1;
+      run(emery, frames: 12);
 
-      expect(pip.overlaps(blob, inset: 1.5), isTrue);
-      expect(blob.isStompedBy(pip), isFalse);
+      expect(emery.overlaps(blob, inset: 1.5), isTrue);
+      expect(blob.isStompedBy(emery), isFalse);
     });
 
     test('a stomp squashes the blob and bounces her back up', () {
       final blob = walkerAt(level, 72, groundTop);
-      final pip = princessAt(level, 72, groundTop - 20);
-      pip.velocity.y = 400;
-      run(pip);
-      expect(blob.isStompedBy(pip), isTrue);
+      final emery = princessAt(level, 72, groundTop - 20);
+      emery.velocity.y = 400;
+      run(emery);
+      expect(blob.isStompedBy(emery), isTrue);
 
       // The same sequence the game runs once the stomp is detected.
       blob.squash();
-      pip.position.y = blob.top - pip.size.y;
-      pip.bounce();
+      emery.position.y = blob.top - emery.size.y;
+      emery.bounce();
 
       expect(blob.isDying, isTrue);
-      expect(pip.velocity.y, lessThan(0), reason: 'she should rebound upward');
-      expect(pip.bottom, closeTo(blob.top, 0.001));
+      expect(
+        emery.velocity.y,
+        lessThan(0),
+        reason: 'she should rebound upward',
+      );
+      expect(emery.bottom, closeTo(blob.top, 0.001));
     });
 
     test('a side hit knocks her away and grants a moment of mercy', () {
       final blob = walkerAt(level, 100, groundTop);
-      final pip = princessAt(level, 72, groundTop)..moveInput = 1;
-      run(pip, frames: 12);
-      expect(blob.isStompedBy(pip), isFalse);
+      final emery = princessAt(level, 72, groundTop)..moveInput = 1;
+      run(emery, frames: 12);
+      expect(blob.isStompedBy(emery), isFalse);
 
-      pip.knockBack(blob.centerX);
+      emery.knockBack(blob.centerX);
 
       expect(
-        pip.velocity.x,
+        emery.velocity.x,
         lessThan(0),
         reason: 'she is to the blob\'s left, so she is pushed further left',
       );
-      expect(pip.velocity.y, lessThan(0));
-      expect(pip.isInvulnerable, isTrue);
+      expect(emery.velocity.y, lessThan(0));
+      expect(emery.isInvulnerable, isTrue);
     });
 
     test('a blob can only be squashed once', () {
@@ -264,25 +268,25 @@ void main() {
 
   group('princess feel', () {
     test('she jumps from the ground', () {
-      final pip = princessAt(level, 72, groundTop);
-      run(pip, frames: 2);
-      expect(pip.onGround, isTrue);
+      final emery = princessAt(level, 72, groundTop);
+      run(emery, frames: 2);
+      expect(emery.onGround, isTrue);
 
-      pip.requestJump();
-      run(pip);
+      emery.requestJump();
+      run(emery);
 
-      expect(pip.velocity.y, lessThan(0));
-      expect(pip.onGround, isFalse);
+      expect(emery.velocity.y, lessThan(0));
+      expect(emery.onGround, isFalse);
     });
 
     test('a jump pressed just before landing still fires', () {
-      final pip = princessAt(level, 72, groundTop - 5);
-      pip.velocity.y = 200;
-      pip.requestJump();
-      run(pip, frames: 4);
+      final emery = princessAt(level, 72, groundTop - 5);
+      emery.velocity.y = 200;
+      emery.requestJump();
+      run(emery, frames: 4);
 
       expect(
-        pip.velocity.y,
+        emery.velocity.y,
         lessThan(0),
         reason: 'the buffered press should fire on the landing frame',
       );
@@ -290,30 +294,30 @@ void main() {
 
     test('she can still jump just after stepping off a ledge', () {
       // Column 17 is open air; the ledge is the last solid tile before it.
-      final pip = princessAt(level, 16 * kTileSize + 8, groundTop)
+      final emery = princessAt(level, 16 * kTileSize + 8, groundTop)
         ..moveInput = 1;
-      run(pip, frames: 12);
-      expect(pip.onGround, isFalse, reason: 'she should be over the pit');
+      run(emery, frames: 12);
+      expect(emery.onGround, isFalse, reason: 'she should be over the pit');
 
-      pip.requestJump();
-      run(pip);
+      emery.requestJump();
+      run(emery);
 
-      expect(pip.velocity.y, lessThan(0));
+      expect(emery.velocity.y, lessThan(0));
     });
 
     test('releasing jump early cuts the rise short', () {
-      final pip = princessAt(level, 72, groundTop);
-      run(pip, frames: 2);
-      pip.jumpHeld = true;
-      pip.requestJump();
-      run(pip);
+      final emery = princessAt(level, 72, groundTop);
+      run(emery, frames: 2);
+      emery.jumpHeld = true;
+      emery.requestJump();
+      run(emery);
 
-      final full = pip.velocity.y;
+      final full = emery.velocity.y;
       expect(full, lessThan(0));
 
-      pip.releaseJump();
-      expect(pip.velocity.y, greaterThan(full));
-      expect(pip.velocity.y, lessThan(0));
+      emery.releaseJump();
+      expect(emery.velocity.y, greaterThan(full));
+      expect(emery.velocity.y, lessThan(0));
     });
 
     test('a stomp bounces her up, higher when jump is held', () {
@@ -327,16 +331,16 @@ void main() {
     });
 
     test('respawning puts her back on the last safe spot', () {
-      final pip = princessAt(level, 72, groundTop);
-      pip.position.setValues(999, 9999);
-      pip.isAlive = false;
+      final emery = princessAt(level, 72, groundTop);
+      emery.position.setValues(999, 9999);
+      emery.isAlive = false;
 
-      pip.respawn(Vector2(72, groundTop - 30));
+      emery.respawn(Vector2(72, groundTop - 30));
 
-      expect(pip.isAlive, isTrue);
-      expect(pip.isInvulnerable, isTrue);
-      expect(pip.position.x, 72);
-      expect(pip.bottom, closeTo(groundTop, 0.001));
+      expect(emery.isAlive, isTrue);
+      expect(emery.isInvulnerable, isTrue);
+      expect(emery.position.x, 72);
+      expect(emery.bottom, closeTo(groundTop, 0.001));
     });
   });
 }

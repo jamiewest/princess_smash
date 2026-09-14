@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flame/components.dart';
+import 'package:flame/text.dart';
+import 'package:flutter/material.dart' show FontWeight, TextStyle;
 
 import 'palette.dart';
 
@@ -74,6 +76,57 @@ class HeartPickup extends Pickup {
       1.6,
       Paint()..color = Pal.cloud.withValues(alpha: 0.85),
     );
+    canvas.restore();
+  }
+}
+
+/// One letter of the lesson's focus word, floating along the road. Collecting
+/// it fills slot [index] of the word tracker in the HUD.
+class LetterPickup extends Pickup {
+  LetterPickup({
+    required super.spawn,
+    required this.letter,
+    required this.index,
+    this.shadow = Pal.dressDark,
+  }) : super(boxSize: Vector2(18, 18));
+
+  final String letter;
+
+  /// This letter's position within the focus word.
+  final int index;
+
+  /// Drop-shadow under the tile, matched to the hero's outfit.
+  final Color shadow;
+
+  static final _glyph = TextPaint(
+    style: const TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w800,
+      color: Pal.ink,
+    ),
+  );
+
+  @override
+  void render(Canvas canvas) {
+    final tilt = math.sin(phase * 2.2) * 0.08;
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+    canvas.rotate(tilt);
+
+    final tile = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset.zero, width: 17, height: 17),
+      const Radius.circular(5),
+    );
+    canvas.drawRRect(tile.shift(const Offset(0, 1.4)), Paint()..color = shadow);
+    canvas.drawRRect(tile, Paint()..color = Pal.cloud);
+    canvas.drawRRect(
+      tile.deflate(0.7),
+      Paint()
+        ..color = Pal.crown
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4,
+    );
+    _glyph.render(canvas, letter, Vector2.zero(), anchor: Anchor.center);
     canvas.restore();
   }
 }
